@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased font-sans;
+  }
+}
+
+/* Glassmorphism & Custom Accents */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.glass-nav {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+}
+
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-700 via-brand-600 to-emerald-500;
+}
+
+.hero-gradient {
+  background: radial-gradient(circle at 50% 0%, rgba(34, 197, 94, 0.12) 0%, rgba(248, 250, 252, 0) 70%);
+}
+
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px -8px rgba(22, 163, 74, 0.12);
+}
+
+/* Custom Leaflet Map Container */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 1rem;
+  z-index: 10;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* MarketLink visual polish + accessible scroll reveal motion */
+html { scroll-behavior: smooth; scroll-padding-top: 6rem; }
+body {
+  background-image: radial-gradient(ellipse at 8% 0%, rgba(34,197,94,.07), transparent 35%),
+                    radial-gradient(ellipse at 95% 22%, rgba(16,185,129,.055), transparent 32%);
+}
+::selection { background: rgba(34,197,94,.22); color: #14532d; }
+.scroll-progress {
+  position: fixed; inset: 0 auto auto 0; width: 100%; height: 3px;
+  transform: scaleX(0); transform-origin: left center; z-index: 9999;
+  background: linear-gradient(90deg, #15803d, #4ade80, #a3e635);
+  box-shadow: 0 1px 10px rgba(22,163,74,.25); pointer-events: none;
+}
+/* Scroll reveal animations are primarily driven by GSAP + ScrollTrigger
+   (see src/components/ScrollEffects.jsx / src/animations/scrollAnimations.js).
+   These two classes are a lightweight CSS fallback used for mount-triggered
+   reveals (e.g. an empty state) that don't need scroll tracking. */
+.reveal-hidden { opacity: 0; transform: translateY(18px); }
+.reveal-show {
+  opacity: 1; transform: translateY(0);
+  transition: opacity .6s cubic-bezier(.2,.7,.2,1), transform .6s cubic-bezier(.2,.7,.2,1);
+}
+
+/* Floating parallax blobs (decorative, moved via GSAP ScrollTrigger on [data-parallax]) */
+.floating-blob {
+  position: absolute; border-radius: 9999px; filter: blur(48px);
+  pointer-events: none; z-index: 0; opacity: 0.55;
+  animation: blob-float 9s ease-in-out infinite;
+}
+@keyframes blob-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(0, -18px) scale(1.06); }
+}
+
+.card-hover, .glass-panel { transition: transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s ease, border-color .3s ease; }
+.card-hover:hover { transform: translateY(-7px); box-shadow: 0 24px 55px -24px rgba(21,128,61,.32); }
+button, a { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible { outline: 3px solid rgba(34,197,94,.55); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

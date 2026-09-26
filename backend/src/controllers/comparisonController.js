@@ -1,0 +1,77 @@
+import { getDB } from '../config/db.js';
+
+/**
+ * GET /api/compare?name=tomato&category=vegetables
+ * Compare products across all farmers and markets
+ */
+export const compareProducts = (req, res) => {
+  const db = getDB();
+  const { name, category } = req.query;
+
+  if (!name && !category) {
+    return res.status(400).json({ message: 'Provide a "name" or "category" query parameter.' });
+  }
+
+  let products = db.products || [];
+
+  if (name) {
+    const q = name.toLowerCase();
+    products = products.filter(
+      p => p.name?.toLowerCase().includes(q) ||
+           p.description?.toLowerCase().includes(q) ||
+           p.category?.toLowerCase().includes(q)
+    );
+  }
+  if (category) {
+    products = products.filter(
+      p => p.category?.toLowerCase().includes(category.toLowerCase())
+    );
+  }
+
+  const enriched = products.map(p => {
+    const farmer = (db.users || []).find(u => u.id === p.farmer_id);
+    const market = (db.markets || []).find(m => m.id === p.market_id);
+    const available = Math.max(0, (p.stock_quantity || 0) - (p.reserved_quantity || 0));
+
+    return {
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      category: p.category,
+      price: p.price,
+      unit: p.unit,
+      stock_quantity: p.stock_quantity || 0,
+      reserved_quantity: p.reserved_quantity || 0,
+      available_quantity: available,
+      status: p.status,
+      image_url: p.image_url,
+      seasonal_tag: p.seasonal_tag,
+      farmer_id: p.farmer_id,
+      farmer_name: farmer?.stall_name || farmer?.name || 'Unknown Stall',
+      farmer_rating: farmer?.rating || null,
+      market_id: p.market_id,
+      market_name: market?.name || 'Unknown Market',
+      market_operating_days: market?.operating_days || [],
+      market_location: market?.location || '',
+      best_value: false
+    };
+  });
+
+  // Flag the cheapest in-stock option(s)
+  const inStock = enriched.filter(p => p.available_quantity > 0);
+  if (inStock.length > 0) {
+    const minPrice = Math.min(...inStock.map(p => p.price));
+    enriched.forEach(p => {
+      if (p.price === minPrice && p.available_quantity > 0) p.best_value = true;
+    });
+  }
+
+  // Sort by price ascending
+  enriched.sort((a, b) => a.price - b.price);
+
+  res.json({
+    query: { name, category },
+    count: enriched.length,
+    products: enriched
+  });
+};
