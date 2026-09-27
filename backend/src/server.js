@@ -142,8 +142,9 @@ const startServer = (port) => {
   });
 };
 
-if (!process.env.VERCEL) {
-  startServer(PORT);
-}
+// Vercel's newer "Services" deployment model runs this as a persistent Web
+// Service (not a serverless function), so it must always bind to a port —
+// Vercel injects the PORT environment variable for the service to listen on.
+startServer(PORT);
 
 export default app;
