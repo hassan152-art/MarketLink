@@ -155,6 +155,31 @@ export const FarmerDashboard = () => {
     }
   };
 
+  // Select an image from the computer and store it as a data URL in image_url.
+  // Keep images small because the existing API sends product data as JSON.
+  const handleProductImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (JPG, PNG, or WebP).');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image must be 2 MB or smaller. Please resize it and try again.');
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProductForm(current => ({ ...current, image_url: reader.result }));
+    };
+    reader.onerror = () => alert('Could not read this image. Please select it again.');
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveProduct = async (e) => {
     e.preventDefault();
     try {
@@ -971,13 +996,26 @@ export const FarmerDashboard = () => {
                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl"
               />
 
-              <input
-                type="text"
-                placeholder="Image URL"
-                value={productForm.image_url}
-                onChange={e => setProductForm({ ...productForm, image_url: e.target.value })}
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl"
-              />
+              <div className="space-y-3">
+                <label className="block text-sm font-bold text-slate-700">Product Image</label>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={handleProductImageSelect}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-emerald-100 file:text-emerald-800 file:font-bold"
+                />
+                <p className="text-xs text-slate-500">Select an image from your computer. JPG, PNG, or WebP; maximum 2 MB.</p>
+                {productForm.image_url && (
+                  <div className="relative w-36">
+                    <img src={productForm.image_url} alt="Product preview" className="w-36 h-28 object-cover rounded-xl border border-slate-200" />
+                    <button
+                      type="button"
+                      onClick={() => setProductForm(current => ({ ...current, image_url: '' }))}
+                      className="mt-2 text-xs font-bold text-red-600"
+                    >Remove image</button>
+                  </div>
+                )}
+              </div>
 
               <button type="submit" className="w-full py-3.5 bg-brand-700 text-white font-bold rounded-2xl">
                 Save Produce Product
