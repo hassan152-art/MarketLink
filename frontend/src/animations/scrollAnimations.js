@@ -27,9 +27,17 @@ export const setupScrollReveal = (element, options = {}) => {
     }
   );
 
+  // Content that loads after the first render (e.g. products from the API)
+  // changes the page height, so trigger positions must be recalculated.
+  ScrollTrigger.refresh();
+
   return () => {
     if (anim.scrollTrigger) anim.scrollTrigger.kill();
     anim.kill();
+    // Killing a tween leaves its inline opacity/transform behind. If the
+    // section was hidden (opacity: 0) before its data arrived, it would stay
+    // invisible forever, so reset the animated properties on cleanup.
+    gsap.set(targets, { clearProps: 'opacity,transform' });
   };
 };
 
