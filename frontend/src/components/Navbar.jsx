@@ -5,7 +5,7 @@ import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { fetchAPI } from '../services/api';
 import { BrandLogo } from './BrandLogo';
-import { navbarEntrance } from '../animations';
+import { navbarEntrance } from '../animations';ac
 import {
   ShoppingBag, User, LogOut, Store, LayoutDashboard, Shield, Heart, Menu, X,
   Globe, Sparkles, Terminal, Award, Bell, TrendingUp, Search, Activity, ChevronDown
@@ -137,13 +137,7 @@ export const Navbar = () => {
                   >
                     <Activity className="w-4 h-4 text-amber-500" /> Market Heatmap
                   </Link>
-                  <Link
-                    to="/api-docs"
-                    onClick={() => setMoreMenuOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-brand-700 rounded-xl transition-colors"
-                  >
-                    <Terminal className="w-4 h-4 text-brand-600" /> API Docs
-                  </Link>
+                 
                 </div>
               )}
             </div>
