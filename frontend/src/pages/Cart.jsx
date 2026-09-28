@@ -128,10 +128,7 @@ export const Cart = () => {
               <span className="text-xl text-brand-700">${cartTotal.toFixed(2)}</span>
             </div>
 
-            <div className="p-3 bg-amber-50 rounded-2xl border border-amber-100 text-[11px] text-amber-900 flex items-start gap-2">
-              <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <span>Payment is settled in person (Cash/Card) when picking up at the market stall.</span>
-            </div>
+        
 
             <button
               onClick={() => navigate('/checkout')}

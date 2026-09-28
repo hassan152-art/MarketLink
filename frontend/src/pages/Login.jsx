@@ -72,6 +72,7 @@ export const Login = () => {
 
   return (
     <AuthLayout
+      reverse
       title="Your Saturday market, saved for later."
       subtitle="Sign back in to pick up where you left off — pre-orders, favorite stalls, and this week's fresh harvest."
       panelQuote="Every listing on MarketLink comes straight from a local grower, not a warehouse."

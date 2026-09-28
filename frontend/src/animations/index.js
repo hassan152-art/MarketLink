@@ -7,3 +7,4 @@ export * from './dashboardAnimations';
 export * from './modalAnimations';
 export * from './navigationAnimations';
 export * from './hoverAnimations';
+export * from './authAnimations';
