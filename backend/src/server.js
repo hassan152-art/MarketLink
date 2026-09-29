@@ -15,6 +15,7 @@ import aiRoutes from './routes/aiRoutes.js';
 import docsRoutes from './routes/docsRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import comparisonRoutes from './routes/comparisonRoutes.js';
+import announcementRoutes from './routes/announcementRoutes.js';
 import { getOrderQR, verifyQR } from './controllers/qrController.js';
 import { getAuditLogs, getFoodWasteMetrics, logAuditEvent } from './controllers/auditController.js';
 import { getAIForecast, getAIWasteAlerts } from './controllers/aiController.js';
@@ -100,6 +101,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/docs', docsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/compare', comparisonRoutes);
+app.use('/api/announcements', announcementRoutes);
 
 // ─── Advanced Endpoints ───────────────────────────────────────────────────────
 app.get('/api/qr/:id', getOrderQR);

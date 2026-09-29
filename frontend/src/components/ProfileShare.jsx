@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
  * MarketLink profile sharing button.
  * Place this component inside a page that is rendered under AuthProvider.
  * It shares the logged-in user's profile URL using Web Share or clipboard.
- * Optional props: className, profilePath (defaults to /profile/:id).
+ * Optional props: className and profilePath. Without profilePath it shares the current page.
  */
 export default function ProfileShare({ className = '', profilePath }) {
   const { user } = useAuth();
@@ -13,9 +13,8 @@ export default function ProfileShare({ className = '', profilePath }) {
 
   if (!user) return null;
 
-  const userId = user._id || user.id || user.userId;
   const displayName = user.name || user.fullName || user.username || 'MarketLink User';
-  const path = profilePath || (userId ? `/profile/${encodeURIComponent(userId)}` : '/profile');
+  const path = profilePath || window.location.pathname;
   const profileUrl = `${window.location.origin}${path}`;
 
   const shareProfile = async () => {

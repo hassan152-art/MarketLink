@@ -2,12 +2,92 @@ import { getDB, saveDB, generateId } from '../config/db.js';
 import { sendOrderPlacedEmail, sendOrderReadyEmail, sendOrderCompletedEmail } from '../utils/email.js';
 import { createNotification } from './notificationController.js';
 
+const PICKUP_CHANGE_CUTOFF_MS = 2 * 60 * 60 * 1000;
+const MAX_PICKUP_DAYS_AHEAD = 30;
+
+const parseClockMinutes = (value) => {
+  const match = String(value || '').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = match[3].toUpperCase();
+  if (hour < 1 || hour > 12 || minute > 59) return null;
+  if (meridiem === 'AM' && hour === 12) hour = 0;
+  if (meridiem === 'PM' && hour !== 12) hour += 12;
+  return hour * 60 + minute;
+};
+
+const parseTimeRange = (range) => {
+  const parts = String(range || '').split(/\s*-\s*/);
+  if (parts.length !== 2) return null;
+  const start = parseClockMinutes(parts[0]);
+  const end = parseClockMinutes(parts[1]);
+  if (start === null || end === null || end <= start) return null;
+  return { start, end };
+};
+
+const getPickupDateTime = (date, slot) => {
+  const range = parseTimeRange(slot);
+  if (!range || !/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return null;
+  const [year, month, day] = date.split('-').map(Number);
+  const hours = Math.floor(range.start / 60);
+  const minutes = range.start % 60;
+  const result = new Date(year, month - 1, day, hours, minutes, 0, 0);
+  return Number.isNaN(result.getTime()) ? null : result;
+};
+
+const validatePickupSchedule = ({ pickup_date, pickup_time_slot, farmer }) => {
+  if (!pickup_date || !pickup_time_slot) {
+    return 'Pickup date and time slot are required.';
+  }
+
+  const dateOnly = new Date(`${pickup_date}T00:00:00`);
+  if (Number.isNaN(dateOnly.getTime())) return 'Please choose a valid pickup date.';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const latest = new Date(today);
+  latest.setDate(latest.getDate() + MAX_PICKUP_DAYS_AHEAD);
+
+  if (dateOnly < today) return 'Pickup date cannot be in the past.';
+  if (dateOnly > latest) return `Pickup date must be within ${MAX_PICKUP_DAYS_AHEAD} days.`;
+
+  const selectedRange = parseTimeRange(pickup_time_slot);
+  if (!selectedRange) return 'Please choose a valid pickup time window.';
+
+  const farmerRange = parseTimeRange(farmer?.pickup_time_windows);
+  if (farmerRange && (selectedRange.start < farmerRange.start || selectedRange.end > farmerRange.end)) {
+    return `Selected pickup time must be within the farmer's pickup window (${farmer.pickup_time_windows}).`;
+  }
+
+  const pickupStart = getPickupDateTime(pickup_date, pickup_time_slot);
+  if (!pickupStart) return 'Could not read the pickup date/time.';
+
+  if (pickupStart.getTime() <= Date.now() + PICKUP_CHANGE_CUTOFF_MS) {
+    return 'Pickup changes and new orders must be made at least 2 hours before the selected pickup time.';
+  }
+
+  return null;
+};
+
+
 export const createOrder = (req, res) => {
   const db = getDB();
   const { farmer_id, market_id, items, pickup_date, pickup_time_slot, notes } = req.body;
 
   if (!items || items.length === 0 || !pickup_date) {
     return res.status(400).json({ message: 'Order items and pickup date are required.' });
+  }
+
+  if (!Array.isArray(items)) {
+    return res.status(400).json({ message: 'Order items must be a valid list.' });
+  }
+
+  const firstFarmerId = Number(farmer_id || items[0]?.farmer_id || 0);
+  const firstFarmer = db.users.find(u => u.id === firstFarmerId);
+  const pickupError = validatePickupSchedule({ pickup_date, pickup_time_slot, farmer: firstFarmer });
+  if (pickupError) {
+    return res.status(400).json({ message: pickupError });
   }
 
   // Pre-validate stock for all requested items
@@ -48,24 +128,34 @@ export const createOrder = (req, res) => {
 
   const createdOrders = [];
 
+
   for (const fId of Object.keys(farmerGroups)) {
     const group = farmerGroups[fId];
+    const farmer = db.users.find(u => u.id === Number(fId));
+    const groupPickupError = validatePickupSchedule({
+      pickup_date,
+      pickup_time_slot,
+      farmer
+    });
+    if (groupPickupError) {
+      return res.status(400).json({ message: groupPickupError });
+    }
+
     let total_amount = 0;
 
-    // Reserve stock (deduct from stock, add to reserved)
+    // Reserve stock without reducing total stock. `stock_quantity` is the
+    // physical quantity on hand; `reserved_quantity` is held for orders.
     for (const item of group.items) {
       const pIdx = db.products.findIndex(p => p.id === item.product_id);
       if (pIdx !== -1) {
-        db.products[pIdx].stock_quantity -= item.quantity;
         db.products[pIdx].reserved_quantity = (db.products[pIdx].reserved_quantity || 0) + item.quantity;
-        if (db.products[pIdx].stock_quantity === 0) {
-          db.products[pIdx].status = 'sold_out';
-        }
+        const availableAfterReservation =
+          Math.max(0, (db.products[pIdx].stock_quantity || 0) - db.products[pIdx].reserved_quantity);
+        db.products[pIdx].status = availableAfterReservation > 0 ? 'available' : 'sold_out';
       }
       total_amount += item.price * item.quantity;
     }
 
-    const farmer = db.users.find(u => u.id === Number(fId));
     const market = db.markets.find(m => m.id === Number(group.market_id));
 
     const existingOrdersInSlot = (db.orders || []).filter(
@@ -168,9 +258,10 @@ export const updateOrderStatus = (req, res) => {
     for (const item of order.items) {
       const pIdx = db.products.findIndex(p => p.id === item.product_id);
       if (pIdx !== -1) {
-        db.products[pIdx].stock_quantity += item.quantity;
         db.products[pIdx].reserved_quantity = Math.max(0, (db.products[pIdx].reserved_quantity || 0) - item.quantity);
-        db.products[pIdx].status = 'available';
+        const availableAfterRelease =
+          Math.max(0, (db.products[pIdx].stock_quantity || 0) - db.products[pIdx].reserved_quantity);
+        db.products[pIdx].status = availableAfterRelease > 0 ? 'available' : 'sold_out';
       }
     }
   }
@@ -181,6 +272,8 @@ export const updateOrderStatus = (req, res) => {
       const pIdx = db.products.findIndex(p => p.id === item.product_id);
       if (pIdx !== -1) {
         db.products[pIdx].reserved_quantity = Math.max(0, (db.products[pIdx].reserved_quantity || 0) - item.quantity);
+        db.products[pIdx].stock_quantity = Math.max(0, (db.products[pIdx].stock_quantity || 0) - item.quantity);
+        db.products[pIdx].status = db.products[pIdx].stock_quantity > 0 ? 'available' : 'sold_out';
       }
     }
   }
@@ -252,13 +345,19 @@ export const cancelOrder = (req, res) => {
     return res.status(400).json({ message: `Cannot cancel order with status '${order.order_status}'.` });
   }
 
+  const cancelPickupStart = getPickupDateTime(order.pickup_date, order.pickup_time_slot);
+  if (cancelPickupStart && cancelPickupStart.getTime() <= Date.now() + PICKUP_CHANGE_CUTOFF_MS) {
+    return res.status(400).json({ message: 'Orders can only be cancelled at least 2 hours before pickup.' });
+  }
+
   // Restore inventory + release reservation
   for (const item of order.items) {
     const pIdx = db.products.findIndex(p => p.id === item.product_id);
     if (pIdx !== -1) {
-      db.products[pIdx].stock_quantity += item.quantity;
       db.products[pIdx].reserved_quantity = Math.max(0, (db.products[pIdx].reserved_quantity || 0) - item.quantity);
-      db.products[pIdx].status = 'available';
+      const availableAfterRelease =
+        Math.max(0, (db.products[pIdx].stock_quantity || 0) - db.products[pIdx].reserved_quantity);
+      db.products[pIdx].status = availableAfterRelease > 0 ? 'available' : 'sold_out';
     }
   }
 
@@ -295,6 +394,18 @@ export const modifyOrder = (req, res) => {
   }
 
   const { pickup_date, pickup_time_slot, notes } = req.body;
+  const nextPickupDate = pickup_date || order.pickup_date;
+  const nextPickupSlot = pickup_time_slot || order.pickup_time_slot;
+  const farmer = (db.users || []).find(u => u.id === order.farmer_id);
+  const scheduleError = validatePickupSchedule({
+    pickup_date: nextPickupDate,
+    pickup_time_slot: nextPickupSlot,
+    farmer
+  });
+  if (scheduleError) {
+    return res.status(400).json({ message: scheduleError });
+  }
+
   if (pickup_date) order.pickup_date = pickup_date;
   if (pickup_time_slot) order.pickup_time_slot = pickup_time_slot;
   if (notes !== undefined) order.notes = notes;

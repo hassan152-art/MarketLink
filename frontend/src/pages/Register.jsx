@@ -7,6 +7,8 @@ import { GoogleSignInButton } from '../components/GoogleSignInButton';
 import { AlertCircle, CheckCircle2, User, Store, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NAME_REGEX = /^[\p{L}][\p{L}\s.'-]{1,99}$/u;
+const PHONE_REGEX = /^\+?[0-9][0-9\s().-]{6,19}$/;
 
 export const Register = () => {
   const { register, googleLogin } = useAuth();
@@ -18,22 +20,38 @@ export const Register = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
+  const [nameTouched, setNameTouched] = useState(false);
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const emailIsValid = EMAIL_REGEX.test(formData.email.trim());
+  const nameIsValid = NAME_REGEX.test(formData.name.trim());
+  const phoneIsValid = formData.contact_number.trim() === '' || PHONE_REGEX.test(formData.contact_number.trim());
   const showEmailError = emailTouched && formData.email.length > 0 && !emailIsValid;
+  const showNameError = nameTouched && formData.name.length > 0 && !nameIsValid;
+  const showPhoneError = phoneTouched && formData.contact_number.length > 0 && !phoneIsValid;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
 
+    if (!nameIsValid) {
+      setNameTouched(true);
+      setError('Please enter a valid name (2-100 letters, spaces, apostrophes, dots, or hyphens).');
+      return;
+    }
     if (!emailIsValid) {
       setEmailTouched(true);
       setError('Please enter a valid email address.');
+      return;
+    }
+    if (!phoneIsValid) {
+      setPhoneTouched(true);
+      setError('Please enter a valid phone number.');
       return;
     }
     if (formData.password.length < 6) {
@@ -141,8 +159,10 @@ export const Register = () => {
             label="Full name / contact person"
             value={formData.name}
             onChange={e => setFormData({ ...formData, name: e.target.value })}
+            onBlur={() => setNameTouched(true)}
             required
             placeholder="e.g. Robert Vance"
+            error={showNameError ? 'Enter a valid name (2-100 characters).' : null}
           />
 
           <AuthField
@@ -183,7 +203,9 @@ export const Register = () => {
             label="Contact phone number"
             value={formData.contact_number}
             onChange={e => setFormData({ ...formData, contact_number: e.target.value })}
-            placeholder="+1 (555) 234-5678"
+            onBlur={() => setPhoneTouched(true)}
+            placeholder="+92 300 1234567"
+            error={showPhoneError ? 'Enter a valid phone number.' : null}
           />
 
           {role === 'Farmer' && (
@@ -216,7 +238,7 @@ export const Register = () => {
 
           <button
             type="submit"
-            disabled={loading || (formData.email.length > 0 && !emailIsValid)}
+            disabled={loading || !nameIsValid || !emailIsValid || !phoneIsValid}
             className="w-full py-3 rounded-full bg-brand-800 hover:bg-brand-900 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-sm transition-colors"
           >
             {loading ? 'Submitting…' : `Register as ${role}`}

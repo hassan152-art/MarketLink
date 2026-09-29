@@ -93,6 +93,14 @@ export const addCategory = (req, res) => {
   res.status(201).json({ message: 'Category added', category: newCat });
 };
 
+export const getPublicAnnouncements = (req, res) => {
+  const db = getDB();
+  const announcements = (db.announcements || [])
+    .slice()
+    .sort((a, b) => new Date(b.created_at || b.date || 0) - new Date(a.created_at || a.date || 0));
+  res.json(announcements);
+};
+
 export const createAnnouncement = (req, res) => {
   const db = getDB();
   const { title, content } = req.body;
@@ -106,7 +114,8 @@ export const createAnnouncement = (req, res) => {
     title,
     content,
     author: req.user.name || 'Admin',
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    created_at: new Date().toISOString()
   };
 
   db.announcements.push(newAnn);

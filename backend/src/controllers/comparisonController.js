@@ -15,11 +15,10 @@ export const compareProducts = (req, res) => {
   let products = db.products || [];
 
   if (name) {
-    const q = name.toLowerCase();
+    const q = name.trim().toLowerCase();
     products = products.filter(
       p => p.name?.toLowerCase().includes(q) ||
-           p.description?.toLowerCase().includes(q) ||
-           p.category?.toLowerCase().includes(q)
+           p.description?.toLowerCase().includes(q)
     );
   }
   if (category) {
@@ -38,7 +37,7 @@ export const compareProducts = (req, res) => {
       name: p.name,
       description: p.description,
       category: p.category,
-      price: p.price,
+      price: Number(p.price) || 0,
       unit: p.unit,
       stock_quantity: p.stock_quantity || 0,
       reserved_quantity: p.reserved_quantity || 0,
@@ -57,14 +56,22 @@ export const compareProducts = (req, res) => {
     };
   });
 
-  // Flag the cheapest in-stock option(s)
+  // Only compare price within the same unit. A "best value" flag is otherwise
+  // misleading (for example, $2/lb vs $1/item).
   const inStock = enriched.filter(p => p.available_quantity > 0);
-  if (inStock.length > 0) {
-    const minPrice = Math.min(...inStock.map(p => p.price));
-    enriched.forEach(p => {
-      if (p.price === minPrice && p.available_quantity > 0) p.best_value = true;
+  const byUnit = new Map();
+  inStock.forEach((product) => {
+    const unitKey = String(product.unit || 'unit').trim().toLowerCase();
+    if (!byUnit.has(unitKey)) byUnit.set(unitKey, []);
+    byUnit.get(unitKey).push(product);
+  });
+
+  byUnit.forEach((unitProducts) => {
+    const minPrice = Math.min(...unitProducts.map(p => p.price));
+    unitProducts.forEach(p => {
+      if (p.price === minPrice) p.best_value = true;
     });
-  }
+  });
 
   // Sort by price ascending
   enriched.sort((a, b) => a.price - b.price);

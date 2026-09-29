@@ -24,7 +24,7 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
 router.post('/reset-password-with-otp', resetPasswordWithOTP);
 router.post('/refresh', refreshToken);
-router.post('/send-otp', sendOTP);
+router.post("/send-otp", sendOTP);
 router.post('/verify-otp', verifyOTP);
 router.get('/security-logs', authenticateToken, getSecurityLogs);
 router.get('/me', authenticateToken, getMe);

@@ -11,6 +11,10 @@ import { sendOTPEmail } from '../utils/email.js';
 // addresses (no @, no domain, spaces, etc.) without being overly strict.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const isValidEmail = (email) => typeof email === 'string' && EMAIL_REGEX.test(email.trim());
+const NAME_REGEX = /^[\p{L}][\p{L}\s.'-]{1,99}$/u;
+const PHONE_REGEX = /^\+?[0-9][0-9\s().-]{6,19}$/;
+export const isValidName = (name) => typeof name === 'string' && NAME_REGEX.test(name.trim());
+export const isValidPhone = (phone) => phone === undefined || phone === null || phone === '' || (typeof phone === 'string' && PHONE_REGEX.test(phone.trim()));
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -60,6 +64,14 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: 'Email, password, and name are required.' });
     }
 
+    if (!isValidName(name)) {
+      return res.status(400).json({ message: 'Name must be 2-100 characters and may contain letters, spaces, apostrophes, dots, and hyphens only.' });
+    }
+
+    if (!isValidPhone(contact_number)) {
+      return res.status(400).json({ message: 'Please enter a valid phone number.' });
+    }
+
     if (!isValidEmail(email)) {
       return res.status(400).json({ message: 'Please enter a valid email address.' });
     }
@@ -68,8 +80,12 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedName = name.trim();
+    const normalizedPhone = typeof contact_number === 'string' ? contact_number.trim() : '';
+
     const db = getDB();
-    const existing = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const existing = db.users.find(u => u.email.toLowerCase() === normalizedEmail);
     if (existing) {
       return res.status(400).json({ message: 'User with this email already exists.' });
     }
@@ -81,11 +97,11 @@ export const register = async (req, res) => {
     const newUser = {
       id: generateId('users'),
       username: username || email.split('@')[0],
-      email,
+      email: normalizedEmail,
       password_hash,
       role: userRole,
-      name,
-      contact_number: contact_number || '',
+      name: normalizedName,
+      contact_number: normalizedPhone,
       address: address || '',
       stall_name: stall_name || '',
       bio: bio || '',
@@ -369,6 +385,13 @@ export const updateProfile = (req, res) => {
 
   const { name, contact_number, address, stall_name, bio, operating_days, pickup_time_windows, latitude, longitude, markets_attended } = req.body;
   
+  if (name !== undefined && !isValidName(name)) {
+    return res.status(400).json({ message: 'Name must be 2-100 characters and may contain letters, spaces, apostrophes, dots, and hyphens only.' });
+  }
+  if (contact_number !== undefined && !isValidPhone(contact_number)) {
+    return res.status(400).json({ message: 'Please enter a valid phone number.' });
+  }
+
   db.users[index] = {
     ...db.users[index],
     name: name ?? db.users[index].name,

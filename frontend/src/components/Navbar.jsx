@@ -5,7 +5,7 @@ import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { fetchAPI } from '../services/api';
 import { BrandLogo } from './BrandLogo';
-import { navbarEntrance } from '../animations';ac
+import { navbarEntrance } from '../animations';
 import {
   ShoppingBag, User, LogOut, Store, LayoutDashboard, Shield, Heart, Menu, X,
   Globe, Sparkles, Terminal, Award, Bell, TrendingUp, Search, Activity, ChevronDown

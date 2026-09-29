@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { fetchAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { QRModal } from '../components/QRModal';
+import ProfileShare from '../components/ProfileShare';
 import {
   Store, Plus, Edit, Trash2, CheckCircle2, Clock, DollarSign, Package,
   Star, MessageSquare, AlertCircle, RefreshCw, X, QrCode, Sparkles,
@@ -257,6 +258,7 @@ export const FarmerDashboard = () => {
         </div>
 
         <div className="relative flex flex-wrap items-center gap-3">
+          <ProfileShare className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs" />
           <button
             onClick={() => setShowQRScanner(true)}
             className="px-5 py-3 rounded-2xl bg-white text-slate-900 font-bold text-xs shadow-md hover:bg-slate-100 transition-colors flex items-center gap-2"

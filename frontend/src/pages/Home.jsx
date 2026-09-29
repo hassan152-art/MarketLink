@@ -16,6 +16,7 @@ export const Home = () => {
   const [markets, setMarkets] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [farmers, setFarmers] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDay, setSelectedDay] = useState('');
   const navigate = useNavigate();
@@ -37,12 +38,14 @@ export const Home = () => {
 
   const loadData = async () => {
     try {
-      const [mRes, pRes] = await Promise.all([
+      const [mRes, pRes, anRes] = await Promise.all([
         fetchAPI('/markets'),
-        fetchAPI('/products')
+        fetchAPI('/products'),
+        fetchAPI('/announcements').catch(() => [])
       ]);
       setMarkets(mRes);
       setFeaturedProducts(pRes.slice(0, 6));
+      setAnnouncements(anRes.slice(0, 3));
 
       // Extract unique farmers from products & markets
       const uniqueFarmers = [];
@@ -71,6 +74,27 @@ export const Home = () => {
   return (
     <div className="space-y-20 pb-20" ref={pageRef}>
       
+      {announcements.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-700">MarketLink Announcement</p>
+                {announcements.map((announcement) => (
+                  <div key={announcement.id}>
+                    <h2 className="font-bold text-slate-900 text-sm">{announcement.title}</h2>
+                    <p className="text-xs text-slate-600 mt-0.5">{announcement.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Hero Section */}
       <section className="relative overflow-hidden hero-gradient pt-12 pb-20 border-b border-emerald-100">
         {/* Floating parallax blobs */}

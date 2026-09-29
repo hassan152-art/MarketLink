@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -11,7 +11,17 @@ export const Checkout = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [pickupDate, setPickupDate] = useState('2026-09-26');
+  const today = useMemo(() => {
+    const d = new Date();
+    return d.toISOString().split('T')[0];
+  }, []);
+  const maxPickupDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split('T')[0];
+  }, []);
+  const [pickupDate, setPickupDate] = useState(() => new Date().toISOString().split('T')[0]);
+
   const [pickupTimeSlot, setPickupTimeSlot] = useState('10:00 AM - 11:00 AM');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,6 +43,16 @@ export const Checkout = () => {
     try {
       setLoading(true);
       setError('');
+
+      const slotStart = pickupTimeSlot.split(' - ')[0].trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (!slotStart) throw new Error('Please choose a valid pickup time.');
+      let slotHour = Number(slotStart[1]);
+      if (slotStart[3].toUpperCase() === 'AM' && slotHour === 12) slotHour = 0;
+      if (slotStart[3].toUpperCase() === 'PM' && slotHour !== 12) slotHour += 12;
+      const pickupStart = new Date(`${pickupDate}T${String(slotHour).padStart(2, '0')}:${slotStart[2]}:00`);
+      if (Number.isNaN(pickupStart.getTime()) || pickupStart.getTime() <= Date.now() + 2 * 60 * 60 * 1000) {
+        throw new Error('Please choose a pickup time at least 2 hours from now.');
+      }
 
       // Calculate unique farmers in basket
       const uniqueFarmers = [...new Set(cart.map(c => c.farmer_id || 2))];
@@ -96,9 +116,12 @@ export const Checkout = () => {
               type="date"
               value={pickupDate}
               onChange={e => setPickupDate(e.target.value)}
+              min={today}
+              max={maxPickupDate}
               required
               className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-brand-500"
             />
+            <p className="text-[11px] text-slate-400 mt-1.5">Pickup can be scheduled from today up to 30 days ahead. Changes/cancellation close 2 hours before pickup.</p>
           </div>
 
           <div>

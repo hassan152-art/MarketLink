@@ -92,32 +92,53 @@ export const createProduct = (req, res) => {
   const db = getDB();
   const { name, category, price, unit, stock_quantity, description, image_url, images, seasonal_tag, market_id } = req.body;
 
-  if (!name || !price || !category) {
-    return res.status(400).json({ message: 'Name, category, and price are required.' });
+  const cleanName = typeof name === 'string' ? name.trim() : '';
+  const cleanCategory = typeof category === 'string' ? category.trim() : '';
+  const priceNum = Number(price);
+  const stockNum = Number(stock_quantity);
+
+  if (!cleanName || !cleanCategory || !Number.isFinite(priceNum) || priceNum <= 0) {
+    return res.status(400).json({ message: 'Valid product name, category, and positive price are required.' });
   }
 
-  const primaryImage = image_url || (images && images[0]) || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=800&q=80';
-  const galleryImages = images && images.length > 0 ? images : [primaryImage];
-  const stockNum = Number(stock_quantity || 0);
-  const priceNum = Number(price);
+  if (!Number.isInteger(stockNum) || stockNum < 0) {
+    return res.status(400).json({ message: 'Stock quantity must be a non-negative whole number.' });
+  }
+
+  // New products use the file picker on the frontend. The selected file is
+  // sent as a data URL so the JSON/MongoDB architecture does not need a
+  // separate object-storage service. Remote image URLs are intentionally
+  // rejected for new products.
+  const selectedImage = typeof image_url === 'string' ? image_url.trim() : '';
+  const imageIsDataUrl = selectedImage.startsWith('data:image/');
+  if (selectedImage && !imageIsDataUrl) {
+    return res.status(400).json({ message: 'Please choose a product image file. Image URLs are not accepted.' });
+  }
+
+  if (selectedImage.length > 3 * 1024 * 1024) {
+    return res.status(400).json({ message: 'Product image is too large. Please choose an image under 2 MB.' });
+  }
+
+  const primaryImage = selectedImage || 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=800&q=80';
+  const galleryImages = imageIsDataUrl ? [selectedImage] : [primaryImage];
 
   const newProduct = {
     id: generateId('products'),
     farmer_id: req.user.id,
     market_id: market_id ? Number(market_id) : 1,
-    name,
-    category,
-    price: priceNum,
-    unit: unit || 'per item',
+    name: cleanName,
+    category: cleanCategory,
+    price: Number(priceNum.toFixed(2)),
+    unit: typeof unit === 'string' && unit.trim() ? unit.trim() : 'per item',
     stock_quantity: stockNum,
     status: stockNum > 0 ? 'available' : 'sold_out',
-    description: description || '',
+    description: typeof description === 'string' ? description.trim() : '',
     image_url: primaryImage,
     images: galleryImages,
     seasonal_tag: seasonal_tag || '🌱 In Season',
     demand_score: 85,
     price_history: [
-      { date: new Date().toISOString().split('T')[0], price: priceNum }
+      { date: new Date().toISOString().split('T')[0], price: Number(priceNum.toFixed(2)) }
     ],
     stock_history: [
       { date: new Date().toISOString().split('T')[0], stock: stockNum }
@@ -146,9 +167,35 @@ export const updateProduct = (req, res) => {
   }
 
   const current = db.products[index];
+
+  if (req.body.image_url !== undefined) {
+    const image = typeof req.body.image_url === 'string' ? req.body.image_url.trim() : '';
+    const isNewFile = image.startsWith('data:image/');
+    const isExistingImage = image === current.image_url;
+    if (image && !isNewFile && !isExistingImage) {
+      return res.status(400).json({ message: 'Please choose a product image file. Image URLs are not accepted.' });
+    }
+    if (image.length > 3 * 1024 * 1024) {
+      return res.status(400).json({ message: 'Product image is too large. Please choose an image under 2 MB.' });
+    }
+  }
   const updatedStock = req.body.stock_quantity !== undefined ? Number(req.body.stock_quantity) : current.stock_quantity;
   const updatedStatus = req.body.status || (updatedStock > 0 ? 'available' : 'sold_out');
   const updatedPrice = req.body.price !== undefined ? Number(req.body.price) : current.price;
+
+  if (!Number.isFinite(updatedPrice) || updatedPrice <= 0) {
+    return res.status(400).json({ message: 'Price must be a positive number.' });
+  }
+  if (!Number.isInteger(updatedStock) || updatedStock < 0) {
+    return res.status(400).json({ message: 'Stock quantity must be a non-negative whole number.' });
+  }
+
+  if (req.body.name !== undefined && (!String(req.body.name).trim() || String(req.body.name).trim().length > 100)) {
+    return res.status(400).json({ message: 'Product name must be 1-100 characters.' });
+  }
+  if (req.body.category !== undefined && !String(req.body.category).trim()) {
+    return res.status(400).json({ message: 'Product category is required.' });
+  }
 
   const priceHistory = current.price_history || [];
   if (updatedPrice !== current.price) {
@@ -160,15 +207,28 @@ export const updateProduct = (req, res) => {
     stockHistory.push({ date: new Date().toISOString().split('T')[0], stock: updatedStock });
   }
 
+  const allowedUpdates = {};
+  ['name', 'category', 'unit', 'description', 'seasonal_tag', 'market_id'].forEach((field) => {
+    if (req.body[field] !== undefined) allowedUpdates[field] = req.body[field];
+  });
+
+  if (req.body.image_url !== undefined) {
+    allowedUpdates.image_url = req.body.image_url;
+  }
+
   db.products[index] = {
     ...current,
-    ...req.body,
+    ...allowedUpdates,
     price: updatedPrice,
     stock_quantity: updatedStock,
     status: updatedStatus,
+    farmer_id: current.farmer_id,
+    market_id: req.body.market_id !== undefined ? Number(req.body.market_id) : current.market_id,
+    images: req.body.image_url !== undefined
+      ? [req.body.image_url]
+      : (current.images || [current.image_url]),
     price_history: priceHistory,
-    stock_history: stockHistory,
-    images: req.body.images || current.images || [current.image_url]
+    stock_history: stockHistory
   };
 
   saveDB(db);

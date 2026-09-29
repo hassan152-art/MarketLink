@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { ReviewModal } from '../components/ReviewModal';
 import { QRModal } from '../components/QRModal';
+import ProfileShare from '../components/ProfileShare';
 import { NotificationsPanel } from '../components/NotificationsPanel';
 import {
   Clock, CheckCircle2, AlertCircle, ShoppingBag, Star, RefreshCw, XCircle,
@@ -201,12 +202,15 @@ export const CustomerDashboard = () => {
           </p>
         </div>
 
-        <button
+        <div className="relative flex flex-wrap items-center gap-2 shrink-0">
+          <ProfileShare className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs" />
+          <button
           onClick={loadDashboardData}
           className="relative px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shrink-0"
         >
           <RefreshCw className="w-3.5 h-3.5" /> Refresh Orders
-        </button>
+          </button>
+        </div>
       </div>
 
       {/* Stats Overview */}
